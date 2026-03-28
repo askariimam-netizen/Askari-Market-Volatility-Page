@@ -372,10 +372,19 @@
     </div>
   </div>
 
-  <!-- ═══ 6-YEAR HISTORY ═══ -->
+  <!-- ═══ HISTORY ═══ -->
   <hr class="section-divider" />
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-    <p class="section-heading" style="margin-bottom:0">6-year historical: Jan 2020 — Mar 2026</p>
+    <div style="display:flex;align-items:center;gap:12px">
+      <p class="section-heading" style="margin-bottom:0" id="hist-heading">6-year historical: Jan 2020 — Mar 2026</p>
+      <div class="range-btns">
+        <button class="range-btn hist-range-btn active" onclick="setHistRange('6Y')">6Y</button>
+        <button class="range-btn hist-range-btn" onclick="setHistRange('5Y')">5Y</button>
+        <button class="range-btn hist-range-btn" onclick="setHistRange('3Y')">3Y</button>
+        <button class="range-btn hist-range-btn" onclick="setHistRange('1Y')">1Y</button>
+        <button class="range-btn hist-range-btn" onclick="setHistRange('6M')">6M</button>
+      </div>
+    </div>
     <div class="hist-legend">
       <div class="leg-item"><div class="leg-sw" style="background:var(--vix)"></div>VIX</div>
       <div class="leg-item"><div class="leg-sw" style="background:var(--spy)"></div>S&amp;P 500</div>
@@ -396,18 +405,18 @@
   <div class="stat-row">
     <div class="stat-box">
       <div class="stat-label">S&amp;P 500 total return</div>
-      <div class="stat-val" style="color:var(--spy)">+82%</div>
-      <div class="stat-sub">Jan 2020 → Mar 2026</div>
+      <div class="stat-val" style="color:var(--spy)" id="hist-spy-ret">+82%</div>
+      <div class="stat-sub" id="hist-spy-sub">Jan 2020 → Mar 2026</div>
     </div>
     <div class="stat-box">
       <div class="stat-label">Nasdaq 100 total return</div>
-      <div class="stat-val" style="color:var(--qqq)">+131%</div>
-      <div class="stat-sub">Jan 2020 → Mar 2026</div>
+      <div class="stat-val" style="color:var(--qqq)" id="hist-ndx-ret">+131%</div>
+      <div class="stat-sub" id="hist-ndx-sub">Jan 2020 → Mar 2026</div>
     </div>
     <div class="stat-box">
       <div class="stat-label">VIX avg / peak</div>
-      <div class="stat-val" style="color:var(--vix)">18.4 / 82.7</div>
-      <div class="stat-sub">Mean · Mar 2020 spike</div>
+      <div class="stat-val" style="color:var(--vix)" id="hist-vix-stat">18.4 / 82.7</div>
+      <div class="stat-sub" id="hist-vix-sub">Mean · Mar 2020 spike</div>
     </div>
   </div>
 
@@ -508,11 +517,18 @@
     let mainChart, termChart, scatterChart, h6Chart, vixAbsChart;
     let allData = null;
     let currentRange = '6M';
+    let currentHistRange = '6Y';
 
     function setRange(r) {
       currentRange = r;
-      document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.textContent === r));
+      document.querySelectorAll('.range-btn:not(.hist-range-btn)').forEach(b => b.classList.toggle('active', b.textContent === r));
       if (allData) renderMainChart(allData, r);
+    }
+
+    function setHistRange(r) {
+      currentHistRange = r;
+      document.querySelectorAll('.hist-range-btn').forEach(b => b.classList.toggle('active', b.textContent === r));
+      renderHistoricalCharts(r);
     }
 
     function renderMainChart(data, range) {
@@ -616,18 +632,48 @@
     const ndxRaw = [9100,8766,7011,8520,9000,9530,10745,11775,11167,11474,12205,12888,13115,13430,13246,14038,13614,14504,15099,15585,14679,15534,15665,16320,15415,14812,15090,13414,12706,11170,12620,12950,10972,11445,11800,11622,12048,12060,12892,13178,13700,14721,15320,14620,14477,14058,15970,16825,16832,17700,18300,17430,18500,19500,19700,18800,19836,20050,20551,21200,21050,21350,19430,17300,18500,19000,20000,19200,19400,19800,20500,20100,20200,19600,19750];
     const vixRaw = [18.8,40.1,82.7,31.1,28.0,30.4,24.5,26.0,26.4,38.0,24.0,22.8,25.2,24.9,20.7,17.0,17.0,15.6,18.2,16.5,23.2,15.4,27.2,17.2,24.8,30.0,22.5,33.4,29.4,34.0,22.8,25.5,34.5,30.0,25.6,21.7,19.8,19.3,18.7,16.7,17.9,14.6,13.7,15.8,17.5,19.3,13.0,13.0,14.6,13.6,13.0,15.9,12.5,11.9,16.5,23.4,16.0,20.0,14.1,17.4,19.4,20.0,21.6,32.7,23.0,19.0,18.2,22.5,21.0,20.0,16.5,18.0,17.5,22.0,18.7];
 
-    function renderHistoricalCharts() {
-      const tickLabels = months.map(m => m.endsWith('-01') ? m.slice(0,4) : (m === '2026-03' ? "'26" : ''));
-      const spxN = spxRaw.map(v => +(v / spxRaw[0] * 100).toFixed(2));
-      const ndxN = ndxRaw.map(v => +(v / ndxRaw[0] * 100).toFixed(2));
-      const vixN = vixRaw.map(v => +(v / vixRaw[0] * 100).toFixed(2));
+    function renderHistoricalCharts(range) {
+      range = range || currentHistRange || '6Y';
+      const sliceMap = { '6Y': 75, '5Y': 60, '3Y': 36, '1Y': 12, '6M': 6 };
+      const n = sliceMap[range] || 75;
+      const mSlice   = months.slice(-n);
+      const spxSlice = spxRaw.slice(-n);
+      const ndxSlice = ndxRaw.slice(-n);
+      const vixSlice = vixRaw.slice(-n);
+
+      // Update heading
+      const startLabel = mSlice[0];
+      const endLabel   = mSlice[mSlice.length - 1];
+      $('hist-heading').textContent = `${range} historical: ${startLabel} — ${endLabel}`;
+
+      // Update stats
+      const spxRet = ((spxSlice[spxSlice.length-1] / spxSlice[0] - 1) * 100).toFixed(0);
+      const ndxRet = ((ndxSlice[ndxSlice.length-1] / ndxSlice[0] - 1) * 100).toFixed(0);
+      const vixAvg = (vixSlice.reduce((a,b) => a+b, 0) / vixSlice.length).toFixed(1);
+      const vixPeak = Math.max(...vixSlice).toFixed(1);
+      const peakMonth = mSlice[vixSlice.indexOf(Math.max(...vixSlice))];
+      $('hist-spy-ret').textContent = (spxRet >= 0 ? '+' : '') + spxRet + '%';
+      $('hist-ndx-ret').textContent = (ndxRet >= 0 ? '+' : '') + ndxRet + '%';
+      $('hist-spy-sub').textContent = `${startLabel} → ${endLabel}`;
+      $('hist-ndx-sub').textContent = `${startLabel} → ${endLabel}`;
+      $('hist-vix-stat').textContent = `${vixAvg} / ${vixPeak}`;
+      $('hist-vix-sub').textContent  = `Mean · ${peakMonth} peak`;
+
+      const tickLabels = mSlice.map((m, i) => {
+        if (i === 0 || m.slice(5) === '01') return m.slice(0, 4);
+        if (i === mSlice.length - 1) return "'" + m.slice(2, 4);
+        return '';
+      });
+      const spxN = spxSlice.map(v => +(v / spxSlice[0] * 100).toFixed(2));
+      const ndxN = ndxSlice.map(v => +(v / ndxSlice[0] * 100).toFixed(2));
+      const vixN = vixSlice.map(v => +(v / vixSlice[0] * 100).toFixed(2));
       const c = cc();
 
       if (h6Chart) h6Chart.destroy();
       h6Chart = new Chart($('h6Chart'), {
         type: 'line',
         data: {
-          labels: months,
+          labels: mSlice,
           datasets: [
             { label: 'VIX (rescaled)', data: vixN, borderColor: '#E2724A', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
             { label: 'S&P 500',        data: spxN, borderColor: '#4A9BE2', borderWidth: 2,   pointRadius: 0, tension: 0.3, fill: false },
@@ -651,17 +697,17 @@
         }
       });
 
-      // VIX spike events above 30
+      // VIX spike events above 30 — only show those within the current slice
       const vixEvents = [
-        { month: '2020-02', label: 'COVID\nfears',     vix: 40.1 },
-        { month: '2020-03', label: 'COVID\ncrash',     vix: 82.7 },
-        { month: '2020-10', label: 'Election +\nCOVID wave 2', vix: 38.0 },
+        { month: '2020-02', label: 'COVID\nfears',            vix: 40.1 },
+        { month: '2020-03', label: 'COVID\ncrash',            vix: 82.7 },
+        { month: '2020-10', label: 'Election +\nCOVID wave 2',vix: 38.0 },
         { month: '2022-02', label: 'Russia\ninvades Ukraine', vix: 30.0 },
         { month: '2022-04', label: 'Fed hikes\n+ Ukraine',    vix: 33.4 },
         { month: '2022-06', label: 'Fed 75bp\nbear market',   vix: 34.0 },
         { month: '2022-09', label: 'Fed 75bp +\nUK crisis',   vix: 34.5 },
         { month: '2025-04', label: 'Tariff\nshock',           vix: 32.7 },
-      ];
+      ].filter(ev => mSlice.includes(ev.month));
 
       const eventAnnotations = {};
       vixEvents.forEach((ev, i) => {
@@ -689,10 +735,10 @@
       vixAbsChart = new Chart($('vixAbsChart'), {
         type: 'bar',
         data: {
-          labels: months,
+          labels: mSlice,
           datasets: [
-            { data: vixRaw, backgroundColor: vixRaw.map(v => v<20?'rgba(110,206,138,0.25)':v<30?'rgba(239,159,39,0.35)':'rgba(226,114,74,0.5)'), borderColor: vixRaw.map(v => v<20?'#6ECE8A':v<30?'#EF9F27':'#E2724A'), borderWidth: 0.5, borderRadius: 1, borderSkipped: false },
-            { type: 'line', label: 'VIX', data: vixRaw, borderColor: '#E2724A', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }
+            { data: vixSlice, backgroundColor: vixSlice.map(v => v<20?'rgba(110,206,138,0.25)':v<30?'rgba(239,159,39,0.35)':'rgba(226,114,74,0.5)'), borderColor: vixSlice.map(v => v<20?'#6ECE8A':v<30?'#EF9F27':'#E2724A'), borderWidth: 0.5, borderRadius: 1, borderSkipped: false },
+            { type: 'line', label: 'VIX', data: vixSlice, borderColor: '#E2724A', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }
           ]
         },
         options: {
@@ -908,7 +954,7 @@
       $('corr-vix-qqq').textContent = calcCorr(vR, qR).toFixed(2);
       $('corr-spy-qqq').textContent = calcCorr(pR, qR).toFixed(2);
 
-      renderHistoricalCharts();
+      renderHistoricalCharts(currentHistRange);
     }
 
     /* ── Boot ── */
